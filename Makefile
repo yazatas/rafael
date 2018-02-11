@@ -1,5 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -O0 -g
+CFLAGS = -Wall -Wextra -O0 -g -Wno-unused-parameter -Wno-unused-variable
+CFLAGS += -Wno-unused-function -Wno-return-type
 SOURCES=$(wildcard src/*.c)
 OBJECTS=$(addprefix obj/,$(notdir $(SOURCES:.c=.o)))
 
