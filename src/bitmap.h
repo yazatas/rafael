@@ -9,6 +9,8 @@ typedef struct bitmap {
 	uint32_t *bits;
 } bitmap_t;
 
+// TODO documentation ASAP!!!!
+
 int bm_set_bit(bitmap_t *bm, uint32_t n);
 int bm_set_range(bitmap_t *bm, uint32_t n, uint32_t k);
 

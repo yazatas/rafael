@@ -1,12 +1,11 @@
 #include "bitmap.h"
 #include <stdio.h>
 
-/* these functions return 0 on success and -1 on error */
-
+/* set nth bit */
 int bm_set_bit(bitmap_t *bm, uint32_t n)
 {
 	if (n / 32 > bm->len) {
-		fprintf(stderr, "bit %u is over range!\n", n);
+		debug("bit %u is over range!", n);
 		return -1;
 	}
 
@@ -14,13 +13,16 @@ int bm_set_bit(bitmap_t *bm, uint32_t n)
 	return 0;
 }
 
+// TODO what is k
+// TODO what is n
 int bm_set_range(bitmap_t *bm, uint32_t n, uint32_t k)
 {
 	if (n / 32 > bm->len || k / 32 > bm->len) {
-		fprintf(stderr, "argument is over range!");
+		debug("argument is over range!");
 		return -1;
 	}
 
+	// TODO what??????
 	while (n <= k) {
 		bm->bits[n / 32] |= 1 << (n % 32);
 		n++;
@@ -28,10 +30,11 @@ int bm_set_range(bitmap_t *bm, uint32_t n, uint32_t k)
 	return 0;
 }
 
+/* unset nth bit */
 int bm_unset_bit(bitmap_t *bm, uint32_t n)
 {
 	if (n / 32 > bm->len) {
-		fprintf(stderr, "bit %u is over range!\n", n);
+		debug("bit %u is over range!", n);
 		return -1;
 	}
 
@@ -42,7 +45,7 @@ int bm_unset_bit(bitmap_t *bm, uint32_t n)
 int bm_unset_range(bitmap_t *bm, uint32_t n, uint32_t k)
 {
 	if (n / 32 > bm->len || k / 32 > bm->len) {
-		fprintf(stderr, "argument is over range!");
+		debug("argument is over range!");
 		return -1;
 	}
 
@@ -57,7 +60,7 @@ int bm_unset_range(bitmap_t *bm, uint32_t n, uint32_t k)
 int test_bit(bitmap_t *bm, uint32_t n)
 {
 	if (n / 32 > bm->len) {
-		fprintf(stderr, "bit %u is over range!\n", n);
+		debug("bit %u is over range!", n);
 		return -1;
 	}
 	return (bm->bits[n / 32] & (1 << (n % 32)));
