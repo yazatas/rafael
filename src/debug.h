@@ -3,7 +3,7 @@
 
 #include <stdarg.h>
 
-#define debug_fp(fp, fmt, ...) fprintf(fp, "[%s] "fmt, __func__, __VA_ARGS__)
-#define debug(fmt, ...) fprintf(stderr, "[%s] "fmt, __func__, __VA_ARGS__)
+#define debug_fp(fp, fmt, ...) fprintf(fp, "[%s] "fmt"\n", __func__, ##__VA_ARGS__)
+#define debug(fmt, ...) fprintf(stderr, "[%s] "fmt"\n", __func__, ##__VA_ARGS__)
 
 #endif /* end of include guard: __DEBUG_H__ */
