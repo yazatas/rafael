@@ -7,7 +7,6 @@ OBJECTS=$(addprefix obj/,$(notdir $(SOURCES:.c=.o)))
 all: main
 
 main: $(OBJECTS)
-	dd if=/dev/zero of=hdd_file bs=65536000 count=1 &> /dev/null
 	$(CC) -o $@ $+
 
 obj/%.o: src/%.c | obj
@@ -16,5 +15,8 @@ obj/%.o: src/%.c | obj
 obj:
 	@mkdir -p $@
 
+disk:
+	dd if=/dev/zero of=hdd_file bs=65536000 count=1 &> /dev/null
+
 clean:
-	rm -rf obj main hdd_file
+	rm -rf obj main

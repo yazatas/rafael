@@ -7,6 +7,8 @@ When rafael is in working condition, I can just transfer all files to micael and
 
 rafael assumes the first 512 bytes of a device is reserved for booting and the superblock is written right after that.
 
+Run `make disk` to create hdd_file for testing purposes
+
 `make; ./main`
 
 # Copying
