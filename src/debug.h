@@ -3,7 +3,11 @@
 
 #include <stdarg.h>
 
-#define debug_fp(fp, fmt, ...) fprintf(fp, "[%s] "fmt"\n", __func__, ##__VA_ARGS__)
-#define debug(fmt, ...) fprintf(stderr, "[%s] "fmt"\n", __func__, ##__VA_ARGS__)
+#define LOG_EMERG "EMERGENCY"
+#define LOG_WARN  "WARNING"
+#define LOG_INFO  "INFO"
+
+#define debug(level, fmt, ...) \
+	fprintf(stderr, "[%s][%s] "fmt"\n", level, __func__, ##__VA_ARGS__)
 
 #endif /* end of include guard: __DEBUG_H__ */
