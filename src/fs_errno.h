@@ -14,10 +14,16 @@ extern int fs_errno;
  *       written better explanation to error logs
  */
 
-enum {
-	FS_MOUNT_FAIL_INVALID_SUPERBLOCK,
-	FS_MKFS_FAIL_NOT_ENOUGH_SPACE,
-} FS_ERRORS;
+enum fs_errno_t {
+	FS_OK,
+	FS_FAIL_INVALID_MAGIC_NUMBER,
+	FS_FAIL_INVALID_SUPERBLOCK,
+	FS_FAIL_SUPERBLOCK_NOT_FOUND,
+	FS_FAIL_NOT_ENOUGH_SPACE,
+	FS_FAIL_READ_FAILED,
+	FS_FAIL_WRITE_FAILED,
+	FS_FAIL_DIRTY_FLAG_SET,
+};
 
 const char *fs_strerror(int fs_errno);
 
