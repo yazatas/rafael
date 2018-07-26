@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -O0 -g -Wno-unused-parameter -Wno-unused-variable
-CFLAGS += -Wno-unused-function -Wno-return-type -std=c99
+CFLAGS += -Wno-unused-function -Wno-return-type -Wno-format -std=c99 -DLEVEL_EMERG
 SOURCES=$(wildcard src/*.c)
 OBJECTS=$(addprefix obj/,$(notdir $(SOURCES:.c=.o)))
 
