@@ -9,16 +9,18 @@
 bitmap_t *bm_alloc_bitmap(size_t nmemb)
 {
     bitmap_t *bm;
-    size_t n;
+    size_t num_bits;
 
-    if ((bm = malloc(sizeof(bitmap_t))) == NULL)
+    if ((bm = malloc(sizeof(bitmap_t))) == NULL) {
         return NULL;
+    }
 
-    n = BM_GET_MULTIPLE_OF_32(nmemb);
-    bm->len = n * 32;
+    num_bits = BM_GET_MULTIPLE_OF_32(nmemb);
+    bm->len = num_bits * 32;
 
-    if ((bm->bits = calloc(n, sizeof(uint32_t))) == NULL)
+    if ((bm->bits = calloc(num_bits, sizeof(uint32_t))) == NULL) {
         return NULL;
+    }
 
     return bm;
 }
@@ -52,6 +54,7 @@ int bm_set_range(bitmap_t *bm, uint32_t n, uint32_t k)
         bm->bits[n / 32] |= 1 << (n % 32);
         n++;
     }
+
     return 0;
 }
 
@@ -78,6 +81,7 @@ int bm_unset_range(bitmap_t *bm, uint32_t n, uint32_t k)
         bm->bits[n / 32] &= ~(1 << (n % 32));
         n++;
     }
+
     return 0;
 }
 
@@ -88,6 +92,7 @@ int bm_test_bit(bitmap_t *bm, uint32_t n)
         LOG_WARN("bit %lu is over range!", n);
         return BM_RANGE_ERROR;
     }
+
     return (bm->bits[n / 32] & (1 << (n % 32))) >> (n % 32);
 }
 
