@@ -1,46 +1,35 @@
 #include <stdlib.h>
 #include <stdint.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "driver.h"
 #include "fs.h"
 #include "debug.h"
 
-static size_t get_device_size(FILE *fp)
+size_t dev_get_block_size(void)
 {
-	fseek(fp, 0L, SEEK_END);
-	size_t size = ftell(fp); /* FIXME: muh sign */
-	fseek(fp, 0L, SEEK_SET);
-
-	return size;
+    return 512;
 }
 
-hdd_handle_t *open_device(const char *device, const char *mode)
+size_t dev_get_num_blocks(int fd)
 {
-	hdd_handle_t *fd = malloc(sizeof(hdd_handle_t));
-	fd->dev_bsize = DEV_BLOCK_SIZE;
-	fd->fp = fopen(device, mode);
-	fd->size = get_device_size(fd->fp);
-
-	debug(LOG_INFO, "device '%s' opened!", device);
-	debug(LOG_INFO, "%zu bytes %zu kilobytes %zu megabytes", fd->size, fd->size / 1000, fd->size / 1000000);
-	return fd;
+    return 65536000 / dev_get_block_size();
 }
 
-int close_device(hdd_handle_t *fd)
+size_t write_blocks(fs_t *fs, uint32_t offset, void *buf, size_t size)
 {
-	fclose(fd->fp);
-	return 0;
+	/* LOG_INFO("%u", size); */
+
+    lseek(fs->fd, offset, SEEK_SET);
+    return write(fs->fd, buf, size);
 }
 
-size_t write_blocks(hdd_handle_t *fd, uint32_t block, uint32_t offset, void *buf, size_t size)
+size_t read_blocks(fs_t *fs, uint32_t offset, void *buf, size_t size)
 {
-	debug(LOG_INFO, "%u", size);
-	fseek(fd->fp, DEV_BLOCK_SIZE * block + offset, SEEK_SET);
-	return fwrite(buf, 1, size, fd->fp);
-}
+    LOG_INFO("reading %u bytes from disk", size);
 
-size_t read_blocks(hdd_handle_t *fd, uint32_t block, uint32_t offset, void *buf, size_t size)
-{
-	fseek(fd->fp, DEV_BLOCK_SIZE * block + offset, SEEK_SET);
-	return fread(buf, 1, size, fd->fp);
+    lseek(fs->fd, offset, SEEK_SET);
+    return read(fs->fd, buf, size);
 }

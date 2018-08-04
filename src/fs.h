@@ -4,12 +4,13 @@
 #include <stdint.h>
 #include <time.h>
 #include <stdio.h>
+#include <sys/types.h>
 
 #include "bitmap.h"
-#include "driver.h"
 #include "fs_errno.h"
 #include "inode.h"
 
+/* FIXME: what is this? */
 #define RFS_BLOCK_SIZE   4096
 
 #define RFS_SB_MAGIC1    0xDEADBEEF
@@ -21,43 +22,54 @@
 #define MNT_WRITE      "w"
 #define MNT_READ_WRITE "r+"
 
-/*
- * two magic numbers at the beginning and end to make sure at least
- * superblock's integrity can be verified 100%
- *
- * TODO: align this to some boundary
- */
+
+/* two magic numbers at the beginning and end to make sure at least
+ * superblock's integrity can be verified 100% */
 typedef struct superblock {
-	uint32_t sb_magic1;
+	uint32_t magic1;
 	uint32_t flag; /* clean/dirty */
 
 	size_t num_blocks;
 	size_t used_blocks;
-
-	bitmap_t inodes;
-	bitmap_t blocks;
+    size_t dev_block_size;
+    off_t  block_bm_start;
+    off_t  block_map_start;
 
 	size_t num_inodes;
-	inode_t root; /* this is a directory */
+    size_t used_inodes;
+    off_t  ino_bm_start;
+    off_t  ino_map_start;
 
-	hdd_handle_t *fd;
+	uint32_t magic2;
 
-	uint32_t sb_magic2;
+    uint8_t unused[42];
 } superblock_t;
 
+typedef struct mount {
+    superblock_t *sb;
+    bitmap_t *bm_inode;
+    bitmap_t *bm_data;
+    inode_t *inode_map;
+} mount_t;
 
-superblock_t *rfs_mkfs(const char *device);
+typedef struct fs {
+    superblock_t *sb;
+    int fd;
+} fs_t;
+
+/* open device  */
+fs_t *rfs_mkfs(const char *device);
 
 /* open device (if it's not open yet), allocate space for
- * superblock and other file system data structures 
- * initialize inode structure and load root node 
- * from disk to memory 
+ * superblock and other file system data structures
+ * initialize inode structure and load root node
+ * from disk to memory
  *
- * return pointer to superblock on success
+ * return pointer to mount_t structure
  * return NULL on error and set fs_errno */
-superblock_t *rfs_mount(const char *device, const char *mode);
+fs_t *rfs_mount(const char *device);
 
-// write all changes to device and close device file descriptor
-enum fs_errno_t rfs_umount(superblock_t *sb);
+/* write all changes to device and close device file descriptor */
+fs_status_t rfs_umount(fs_t *fs);
 
 #endif /* end of include guard: __FS_H__ */

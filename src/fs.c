@@ -1,150 +1,172 @@
-#include <stdlib.h>
-#include <time.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <time.h>
 
+#include "debug.h"
+#include "driver.h"
 #include "fs.h"
 #include "fs_errno.h"
-#include "debug.h"
 
-#define SB_SIZE sizeof(superblock_t)
+#define BOOTLOADER_SIZE 512 
+#define BYTES_PER_INODE (1024 * 16)
+#define SB_SIZE         sizeof(superblock_t)
 
-superblock_t *rfs_mkfs(const char *device)
+static superblock_t *sb_global;
+
+/* start of the disk is divided as following:
+ * 1) boot loader  (512 bytes)
+ * 2) superblock   (128 bytes)
+ * 3) inode bitmap (N bytes)
+ * 4) block bitmap (N bytes)
+ * 5) inode map    (N bytes)
+ * 6) data blocks  (N bytes) */
+fs_t *rfs_mkfs(const char *device)
 {
-    /* what to do:
-     * 1) allocate space for superblock_t
-     * 2) fill it with data you know
-     * 3) create hdd_handle and open device 
-     * 4) initialize root directory and inode structures 
-     * 5) write changes to device */
+    size_t avail_space, disk_size, offset;
+    size_t total, bm_size, nwritten, ino_map_size;
 
-    superblock_t *sb = malloc(sizeof(superblock_t));
+    fs_t *fs = malloc(sizeof(fs_t));
+    fs->sb   = malloc(sizeof(superblock_t));
 
-    /* init basic stuff */
-    sb->sb_magic1 = RFS_SB_MAGIC1;
-    sb->sb_magic2 = RFS_SB_MAGIC2;
-    sb->flag      = RFS_SB_DIRTY;
+    LOG_INFO("superblock size: %u", sizeof(superblock_t));
 
-    /* open device and calculate size of inode table etc. */
-    sb->fd = open_device(device, MNT_READ_WRITE);
+    fs->sb->magic1 = RFS_SB_MAGIC1;
+    fs->sb->magic2 = RFS_SB_MAGIC2;
+    fs->sb->flag = RFS_SB_CLEAN;
+    fs->sb->dev_block_size = 512;
 
-    // TODO remove "/ 32" and add some kind of macro to bitmap.h
+    if ((fs->fd = open(device, O_RDWR | O_CREAT)) == -1) {
+        LOG_EMERG("failed to open disk: %s", strerror(errno));
+        return NULL;
+    }
 
-    // file system block stuff
-    sb->blocks.len  = (sb->fd->size / RFS_BLOCK_SIZE) / 32;
-    sb->blocks.bits = malloc(sizeof(uint32_t) * sb->blocks.len);
+    fs->sb->used_blocks = fs->sb->used_inodes = 0;
 
-    debug(LOG_INFO, "bitmap for %zu file system blocks allocated (%zu bytes)!", 
-           sb->blocks.len * 32, sb->blocks.len);
+    fs->sb->dev_block_size = dev_get_block_size();
+    fs->sb->num_blocks     = dev_get_num_blocks(fs->fd);
 
-    // inode stuff
-    sb->num_inodes  = RFS_NUM_INODES;
-    sb->inodes.len  = RFS_NUM_INODES / 32;
-    sb->inodes.bits = calloc(sb->inodes.len, sizeof(uint32_t));
-    bm_set_bit(&sb->inodes, 0); // root node
+    disk_size   = fs->sb->dev_block_size * fs->sb->num_blocks;
+    avail_space = disk_size - BOOTLOADER_SIZE - sizeof(superblock_t);
 
-    debug(LOG_INFO, "bitmap for %zu inodes allocated (%zu bytes)!", 
-           sb->inodes.len * 32, sb->inodes.len);
+    LOG_INFO("disk size: %u bytes", disk_size);
+    LOG_INFO("available space: %u bytes", avail_space);
 
-	// TODO mkinode
-	// can't be used for this
-    sb->root.name[0]   = '/'; 
-	sb->root.name[1]   = '\0';
-    sb->root.inode_num = 0;
-    sb->root.uid  = sb->root.gid   = 0; // FIXME chmod style numbering??
-    sb->root.mode = sb->root.flags = 0;
-    sb->root.create_time = sb->root.modified_time = time(NULL);
+    fs->sb->num_inodes = avail_space / (BYTES_PER_INODE + sizeof(inode_t));
+    ino_map_size       = fs->sb->num_inodes * sizeof(inode_t);
+    fs->sb->num_blocks = (avail_space - ino_map_size - TO_BM_LEN(fs->sb->num_inodes)) / RFS_BLOCK_SIZE;
 
-    /* calculate how many file system blocks 
-     * boot loader, superblock and inodes consume */
-    size_t space = (512 + sizeof(superblock_t) + (RFS_NUM_INODES - 1) 
-                        * sizeof(inode_t))     / RFS_BLOCK_SIZE;
-    bm_set_range(&sb->blocks, 0, space);
-    debug(LOG_INFO, "%zu file system blocks consumed", space);
+    /* sanity check, for debugging only */
+    total = BOOTLOADER_SIZE + sizeof(superblock_t) + ino_map_size +
+            TO_BM_LEN(fs->sb->num_inodes) + TO_BM_LEN(fs->sb->num_blocks) + 
+            fs->sb->num_blocks * RFS_BLOCK_SIZE;
 
-    debug(LOG_INFO, "writing changes to disk!");
+    LOG_INFO("total space used: %u bytes", total);
 
-    /* if (commit(sb) != FS_OK) { */
-    /*  debug(LOG_EMERG, "failed to write superblock to disk!"); */
-    /*  return NULL; */
-    /* } */
+    if (total > disk_size) {
+        LOG_EMERG("file system total size exceeds disk size!");
+        return NULL;
+    }
 
-    return sb;
+    bitmap_t *bm_inode = bm_alloc_bitmap(fs->sb->num_inodes);
+    bitmap_t *bm_data  = bm_alloc_bitmap(fs->sb->num_blocks);
+    inode_t *inode_map = malloc(ino_map_size);
+
+    if ((nwritten = write_blocks(fs, BOOTLOADER_SIZE, fs->sb, SB_SIZE)) != SB_SIZE) {
+        LOG_EMERG("failed to write superblock to disk!");
+        goto error;
+    }
+
+    offset = SB_SIZE + BOOTLOADER_SIZE;
+    fs->sb->ino_bm_start = offset;
+    bm_size = BM_GET_SIZE(bm_inode);
+
+    LOG_INFO("inode bitmap size and start: %u 0x%x", bm_size, fs->sb->ino_bm_start);
+
+    if ((nwritten = write_blocks(fs, offset, bm_inode, bm_size)) != bm_size) {
+        LOG_EMERG("failed to write inode bitmap to disk!");
+        goto error;
+    }
+
+    offset += bm_size;
+    fs->sb->block_bm_start = offset;
+    bm_size = BM_GET_SIZE(bm_data);
+
+    LOG_INFO("block bitmap size and start: %u 0x%x", bm_size, fs->sb->block_bm_start);
+
+    if ((nwritten = write_blocks(fs, offset, bm_data, bm_size)) != bm_size) {
+        LOG_EMERG("failed to write data block bitmap to disk!");
+        goto error;
+    }
+
+    offset += bm_size;
+    fs->sb->ino_map_start = offset;
+
+    LOG_INFO("inode map size and start: %u 0x%x", ino_map_size, offset);
+
+    if ((nwritten = write_blocks(fs, offset, inode_map, ino_map_size)) != ino_map_size) {
+        LOG_EMERG("failed to write inode map to disk!");
+        goto error;
+    }
+
+    offset += ino_map_size;
+    fs->sb->block_map_start = offset;
+
+    LOG_INFO("data block start: 0x%x", offset);
+
+    if ((nwritten = write_blocks(fs, BOOTLOADER_SIZE, fs->sb, SB_SIZE)) != SB_SIZE) {
+        LOG_EMERG("failed to write superblock to disk!");
+        goto error;
+    }
+
+    return fs;
+
+error:
+    LOG_EMERG("failed to write file system to disk!");
+    fs_set_errno(FS_WRITE_FAILED);
+    return NULL;
 }
 
-superblock_t *rfs_mount(const char *device, const char *mode)
+fs_t *rfs_mount(const char *device)
 {
-    int nread;
-    hdd_handle_t *fd;
-    superblock_t *sb = malloc(sizeof(superblock_t));
+    size_t nread;
 
-    fd = sb->fd = open_device(device, mode);
+    fs_t *fs = malloc(sizeof(fs_t));
+    fs->sb   = malloc(sizeof(superblock_t));
+    fs->fd   = open(device, O_RDWR | O_CREAT);
 
-    if ((nread = read_blocks(sb->fd, 1, 0, sb, SB_SIZE)) != SB_SIZE) {
-        debug(LOG_EMERG, "read %d bytes", nread);
-        fs_errno = FS_FAIL_READ_FAILED;
-        return NULL;
-    } 
-
-    /* reset superblock's file descriptor as it was overwritten */
-    sb->fd = fd;
-
-    debug(LOG_INFO, "superblock found!");
-    debug(LOG_INFO, "0x%x (0x%x) and 0x%x (0x%x)", sb->sb_magic1, RFS_SB_MAGIC1,
-                                                   sb->sb_magic2, RFS_SB_MAGIC2);
-
-    if (sb->sb_magic1 != RFS_SB_MAGIC1 || sb->sb_magic2 != RFS_SB_MAGIC2) {
-        fs_errno = FS_FAIL_INVALID_MAGIC_NUMBER;
+    if ((nread = read_blocks(fs, BOOTLOADER_SIZE, fs->sb, SB_SIZE)) != SB_SIZE) {
+        LOG_EMERG("failed to read superblock!");
         return NULL;
     }
 
-    if (sb->flag != RFS_SB_CLEAN) {
-		debug(LOG_WARN, "Dirty flag set when mounting file system!");
-		debug(LOG_INFO, "Running file system consistency check!");
-        fs_errno = FS_FAIL_DIRTY_FLAG_SET;
+    if (fs->sb->magic1 != RFS_SB_MAGIC1 || fs->sb->magic2 != RFS_SB_MAGIC2) {
+        LOG_EMERG("Invalid magic number: 0x%x 0x%x", fs->sb->magic1, fs->sb->magic2);
         return NULL;
     }
 
-    // TODO: what to do with inodes
-    //       and file data that's on the disk??
+    LOG_INFO("superblock:\n"
+             "\tmagic1:          0x%08x\n"
+             "\tmagic2:          0x%08x\n"
+             "\tnum_blocks:      %10u\n"
+             "\tused_blocks:     %10u\n"
+             "\tdev_block_size:  %10u\n"
+             "\tblock_bm_start:  0x%08x\n"
+             "\tblock_map_start: 0x%08x\n"
+             "\tnum_inodes:      %10u\n"
+             "\tused_inodes:     %10u\n"
+             "\tino_bm_start:    0x%08x\n"
+             "\tino_map_start:   0x%08x\n", fs->sb->magic1, fs->sb->magic2,
+             fs->sb->num_blocks, fs->sb->used_blocks, fs->sb->dev_block_size,
+             fs->sb->block_bm_start, fs->sb->block_map_start, fs->sb->num_inodes,
+             fs->sb->used_inodes, fs->sb->ino_bm_start, fs->sb->ino_map_start);
 
-	// TODO: how to take root file system into account?!?!?!
-	// 		 this question must be answered before any file 
-	// 		 data block are written, it's absolutely essential
-
-    // TODO root inode is allocated alongsize superblock
-    //      read root node (and maybe its immediate children)
-    //      to ram memory
-    //
-    //      TODO how to do that???
-
-    return sb;
+    close(fs->fd);
+    return fs;
 }
 
-enum fs_errno_t rfs_umount(superblock_t *sb)
+fs_status_t rfs_umount(fs_t *fs)
 {
-    if (!sb) {
-        debug(LOG_WARN, "suberblock is NULL!");
-		return FS_FAIL_INVALID_SUPERBLOCK;
-    }
-
-    debug(LOG_INFO, "unmounting...");
-    debug(LOG_INFO, "writing superblock to disk...");
-
-    sb->flag = RFS_SB_CLEAN;
-
-	size_t nwritten;
-    if ((nwritten = write_blocks(sb->fd, 1, 0, sb, SB_SIZE)) != SB_SIZE) {
-		fprintf(stderr, "%s\n", strerror(errno));
-        debug(LOG_EMERG, "failed to write superblock!");
-		debug(LOG_EMERG, "wrote %zu bytes!", nwritten);
-		return FS_FAIL_WRITE_FAILED;
-    }
-
-    close_device(sb->fd);
-
-    free(sb->fd); free(sb);
-    debug(LOG_INFO, "file system unmounted successfully!");
-
-	return FS_OK;
 }
