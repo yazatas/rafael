@@ -24,6 +24,15 @@ size_t dev_get_num_blocks(int fd);
  *       and flush the changes to disk
  */
 
+/* read "size" bytes from disk to "buf"
+ *
+ * conversion to disk sized blocks is done internally so the caller
+ * need'n't to worry about the disk interface and its intricacies */
+size_t rfs_read_buf(fs_t *fs, uint32_t offset, void *buf, size_t size);
+
+/* write "size" bytes from "buf" to disk */
+size_t rfs_write_buf(fs_t *fs, uint32_t offset, void *buf, size_t size);
+
 /* write size bytes from buf to memory location starting from start 
  * 
  * return how many bytes was written */
