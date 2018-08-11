@@ -30,18 +30,24 @@ size_t dev_get_num_blocks(int fd);
  * need'n't to worry about the disk interface and its intricacies */
 size_t rfs_read_buf(fs_t *fs, uint32_t offset, void *buf, size_t size);
 
-/* write "size" bytes from "buf" to disk */
+/* write "size" bytes from "buf" to disk
+ *
+ * conversion to disk sized blocks is done internally so the caller
+ * need'n't to worry about the disk interface and its intricacies 
+ *
+ * Returns the number of bytes written to disk on success and 0 on error 
+ *
+ * NOTE: return value may differ from "size" as it denotes the buffer 
+ * size but rfs_write_buf() returns the actual amount of bytes written 
+ * (the size may have been round up to satisfty the disk requirements) 
+ *
+ * Caller should check that the return values is not 0 and if it is, check fs_errno */
 size_t rfs_write_buf(fs_t *fs, uint32_t offset, void *buf, size_t size);
 
-/* write size bytes from buf to memory location starting from start 
- * 
- * return how many bytes was written */
-size_t write_blocks(fs_t *fs, uint32_t offset, void *buf, size_t size);
+/* read "nblocks" * RFS_BLOCK_SIZE of bytes from disk to buffer "buf" */
+size_t rfs_read_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks);
 
-/* read size bytes from disk starting at location start to buf 
- * read_blocks assumes buf points to an allocated block of memory
- *
- * return how many bytes was read */
-size_t read_blocks(fs_t *fs, uint32_t offset, void *buf, size_t size);
+/* write "nblocks" * RFS_BLOCK_SIZE of bytes from buffer "buf" to disk */
+size_t rfs_write_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks);
 
 #endif /* end of include guard: __DRIVER_H__ */
