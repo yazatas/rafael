@@ -66,15 +66,15 @@ fs_t *rfs_mkfs(const char *device)
     disk_size   = fs->sb->dev_block_size * fs->sb->num_blocks;
     avail_space = disk_size - BOOTLOADER_SIZE - sizeof(superblock_t);
 
-    LOG_DEBUG("disk size: %u bytes", disk_size);
-    LOG_DEBUG("available space: %u bytes", avail_space);
+    LOG_INFO("disk size: %u bytes", disk_size);
+    LOG_INFO("available space: %u bytes", avail_space);
 
     fs->sb->num_inodes = avail_space / (BYTES_PER_INODE + sizeof(inode_t));
     ino_map_size       = fs->sb->num_inodes * sizeof(inode_t);
     fs->sb->num_blocks = (avail_space - ino_map_size - TO_BM_LEN(fs->sb->num_inodes)) / RFS_BLOCK_SIZE;
 
-    LOG_DEBUG("%u inodes take %u bytes of space", fs->sb->num_inodes, ino_map_size);
-    LOG_WARN("file system has %u data blocks", fs->sb->num_blocks);
+    LOG_INFO("%u inodes take %u bytes of space", fs->sb->num_inodes, ino_map_size);
+    LOG_INFO("file system has %u data blocks", fs->sb->num_blocks);
 
     /* sanity check, for debugging only */
     total = BOOTLOADER_SIZE + sizeof(superblock_t) + ino_map_size +
@@ -111,7 +111,7 @@ fs_t *rfs_mkfs(const char *device)
 
     /* ******************************************************************** */
 
-    LOG_DEBUG("writing inode bitmap to disk");
+    LOG_INFO("writing inode bitmap to disk");
 
     byte_offset += bytes_written;
     fs->sb->ino_bm_start = byte_offset = 2 * RFS_BLOCK_SIZE;
@@ -120,7 +120,6 @@ fs_t *rfs_mkfs(const char *device)
     LOG_DEBUG("inode bitmap takes %u bytes", num_bytes);
     LOG_DEBUG("inode bitmap starts at block %u (0x%x)", 
             fs->sb->ino_bm_start, fs->sb->ino_bm_start);
-    LOG_DEBUG("writing inode bitmap to disk");
 
     bytes_written = rfs_write_buf(fs, byte_offset, bm_inode, num_bytes);
 
@@ -131,13 +130,14 @@ fs_t *rfs_mkfs(const char *device)
 
     /* ******************************************************************** */
 
+    LOG_INFO("writing block bitmap to disk");
+
     fs->sb->block_bm_start = byte_offset += bytes_written;
     num_bytes = BM_GET_SIZE(bm_data);
 
     LOG_DEBUG("data block bitmap takes %u bytes", num_bytes);
     LOG_DEBUG("data block bitmap starts at block %u (0x%x)",
             fs->sb->block_bm_start, fs->sb->block_bm_start);
-    LOG_DEBUG("writing block bitmap to disk");
 
     bytes_written = rfs_write_buf(fs, byte_offset, bm_data, num_bytes);
 
@@ -147,6 +147,8 @@ fs_t *rfs_mkfs(const char *device)
     }
 
     /* ******************************************************************** */
+
+    LOG_INFO("writing inode map to disk");
 
     fs->sb->ino_map_start = byte_offset += bytes_written;
 
@@ -162,7 +164,10 @@ fs_t *rfs_mkfs(const char *device)
 
     /* ******************************************************************** */
 
+    LOG_INFO("writing superblock to disk");
+
     fs->sb->block_map_start = byte_offset + bytes_written;
+
     LOG_DEBUG("data blocks start at block %u", fs->sb->block_map_start);
     LOG_DEBUG("writing superblock to disk");
 
@@ -187,10 +192,8 @@ error:
 fs_t *rfs_mount(const char *device)
 {
     fs_t *fs = malloc(sizeof(fs_t));
-    fs->sb = malloc(sizeof(superblock_t));
-    fs->fd = open(device, O_RDWR | O_CREAT);
-
-    disk_init(device);
+    fs->sb   = malloc(sizeof(superblock_t));
+    fs->fd   = disk_init(device);
 
     fs->sb->num_blocks = 1;
     if (rfs_read_buf(fs, RFS_BLOCK_SIZE, fs->sb, SB_SIZE) == 0) {
@@ -204,7 +207,7 @@ fs_t *rfs_mount(const char *device)
         return NULL;
     }
 
-    LOG_DEBUG("superblock:\n"
+    LOG_INFO("superblock:\n"
              "\tmagic1:          0x%08x\n"
              "\tmagic2:          0x%08x\n"
              "\tnum_blocks:      %10u\n"

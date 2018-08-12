@@ -35,14 +35,10 @@ size_t rfs_read_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
     if (b_offset > fs->sb->num_blocks) {
         LOG_EMERG("Trying to read from block %u but file system has only %u blocks",
                 b_offset, fs->sb->num_blocks);
-        goto error;
+        return 0;
     }
 
-    if (b_offset > fs->sb->num_blocks) {
-        LOG_EMERG("Trying to write to block %u but file system has only %u blocks",
-                b_offset, fs->sb->num_blocks);
-        goto error;
-    }
+    LOG_INFO("reading %u blocks, block offset %u",  nblocks, b_offset);
 
     for (size_t i = 0, ptr = 0; i < nblocks; ++i) {
 
@@ -56,9 +52,6 @@ size_t rfs_read_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
     }
 
     return nblocks;
-
-error:
-    return 0;
 }
 
 size_t rfs_write_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
@@ -68,8 +61,10 @@ size_t rfs_write_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
     if (b_offset > fs->sb->num_blocks) {
         LOG_EMERG("Trying to write to block %u but file system has only %u blocks",
                 b_offset, fs->sb->num_blocks);
-        goto error;
+        return 0;
     }
+
+    LOG_INFO("writing %u blocks, block offset %u",  nblocks, b_offset);
 
     for (size_t i = 0, ptr = 0; i < nblocks; ++i) {
 
@@ -83,10 +78,6 @@ size_t rfs_write_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
     }
 
     return nblocks;
-
-error:
-    LOG_EMERG("failed to write blocks to disk!");
-    return 0;
 }
 
 /* If size is evenly divisible by RFS_BLOCK_SIZE then this routine is very simple
@@ -102,6 +93,8 @@ size_t rfs_write_buf(fs_t *fs, uint32_t offset, void *buf, size_t size)
     if (buf == NULL || size == 0) {
         goto error;
     }
+
+    LOG_INFO("writing %u bytes, byte offset %u", size, offset);
 
     if (size % RFS_BLOCK_SIZE == 0) {
         nblocks = size / RFS_BLOCK_SIZE;
@@ -125,7 +118,8 @@ size_t rfs_write_buf(fs_t *fs, uint32_t offset, void *buf, size_t size)
     if (size % RFS_BLOCK_SIZE != 0) {
         nblocks = size / RFS_BLOCK_SIZE;
 
-        LOG_DEBUG("size %u | blocks %u | remaining %u", size, nblocks, size % RFS_BLOCK_SIZE);
+        LOG_DEBUG("size %u | blocks %u | remaining %u",
+                size, nblocks, size % RFS_BLOCK_SIZE);
 
         if ((nwritten = rfs_write_blocks(fs, b_offset, buf, nblocks)) != nblocks)
             goto error;
@@ -164,6 +158,8 @@ size_t rfs_read_buf(fs_t *fs, uint32_t offset, void *buf, size_t size)
     if (buf == NULL || size == 0) {
         goto error;
     }
+
+    LOG_INFO("reading %u bytes, byte offset %u", size, offset);
 
     if (size % RFS_BLOCK_SIZE == 0) {
         nblocks = size / RFS_BLOCK_SIZE;
