@@ -18,9 +18,9 @@ static size_t get_block_offset(size_t offset)
     return offset / RFS_BLOCK_SIZE;
 }
 
-static size_t get_sector_offset(size_t offset)
+static size_t get_sector_offset(int fd, size_t offset)
 {
-    return offset / disk_get_block_size();
+    return offset / disk_get_block_size(fd);
 }
 
 static size_t get_block_count(size_t nbytes)
@@ -30,14 +30,13 @@ static size_t get_block_count(size_t nbytes)
 
 size_t rfs_read_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
 {
+    const size_t BLOCK_SIZE = disk_get_block_size(fs->fd);
+
     if (b_offset > fs->sb->num_blocks) {
         LOG_EMERG("Trying to read from block %u but file system has only %u blocks",
                 b_offset, fs->sb->num_blocks);
         goto error;
     }
-
-    const size_t BLOCK_SIZE = disk_get_block_size();
-    size_t curblock, pcb;
 
     if (b_offset > fs->sb->num_blocks) {
         LOG_EMERG("Trying to write to block %u but file system has only %u blocks",
@@ -50,12 +49,11 @@ size_t rfs_read_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
         size_t start = (b_offset + i) * RFS_BLOCK_SIZE;
         size_t end   = (b_offset + i) * RFS_BLOCK_SIZE + RFS_BLOCK_SIZE;
 
-        for (; start < end; start+=BLOCK_SIZE, ptr += BLOCK_SIZE) {
+        for (; start < end; start+=BLOCK_SIZE, ptr+=BLOCK_SIZE) {
             LOG_DEBUG("writing to disk sector %u", start / BLOCK_SIZE);
-            disk_read(start / BLOCK_SIZE, &((uint8_t *)buf)[ptr]);
+            disk_read(fs->fd, start / BLOCK_SIZE, &((uint8_t *)buf)[ptr]);
         }
     }
-
 
     return nblocks;
 
@@ -65,8 +63,7 @@ error:
 
 size_t rfs_write_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
 {
-    const size_t BLOCK_SIZE = disk_get_block_size();
-    size_t curblock;
+    const size_t BLOCK_SIZE = disk_get_block_size(fs->fd);
 
     if (b_offset > fs->sb->num_blocks) {
         LOG_EMERG("Trying to write to block %u but file system has only %u blocks",
@@ -81,7 +78,7 @@ size_t rfs_write_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
 
         for (; start < end; start+=BLOCK_SIZE, ptr += BLOCK_SIZE) {
             LOG_DEBUG("writing to disk sector %u", start / BLOCK_SIZE);
-            disk_write(start / BLOCK_SIZE, &((uint8_t *)buf)[ptr]);
+            disk_write(fs->fd, start / BLOCK_SIZE, &((uint8_t *)buf)[ptr]);
         }
     }
 
@@ -99,7 +96,8 @@ error:
 size_t rfs_write_buf(fs_t *fs, uint32_t offset, void *buf, size_t size)
 {
     static uint8_t fs_block[RFS_BLOCK_SIZE];
-    size_t nblocks, nwritten, b_offset = get_block_offset(offset);
+    size_t b_offset = get_block_offset(offset);
+    size_t nblocks, nwritten;
 
     if (buf == NULL || size == 0) {
         goto error;

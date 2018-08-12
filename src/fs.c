@@ -22,8 +22,6 @@ static inline size_t bytes_to_blocks(size_t bytes)
     return bytes / RFS_BLOCK_SIZE + ((bytes % RFS_BLOCK_SIZE) != 0);
 }
 
-static superblock_t *sb_global;
-
 /* rafael disk layout:
  *
  * 1) Booting stuff (1 block)
@@ -55,18 +53,15 @@ fs_t *rfs_mkfs(const char *device)
     fs->sb->magic1 = RFS_SB_MAGIC1;
     fs->sb->magic2 = RFS_SB_MAGIC2;
     fs->sb->flag = RFS_SB_CLEAN;
-    fs->sb->dev_block_size = disk_get_block_size();
 
-    /* if ((fs->fd = open(device, O_RDWR | O_CREAT)) == -1) { */
-    /*     LOG_EMERG("failed to open disk: %s", strerror(errno)); */
-    /*     return NULL; */
-    /* } */
-    disk_init(device);
+    if ((fs->fd = disk_init(device)) == -1) {
+        LOG_EMERG("failed to open disk: %s", strerror(errno));
+        return NULL;
+    }
 
     fs->sb->used_blocks = fs->sb->used_inodes = 0;
-
-    fs->sb->dev_block_size = disk_get_block_size();
-    fs->sb->num_blocks     = disk_get_size() / fs->sb->dev_block_size;
+    fs->sb->dev_block_size = disk_get_block_size(fs->fd);
+    fs->sb->num_blocks     = disk_get_size(fs->fd) / fs->sb->dev_block_size;
 
     disk_size   = fs->sb->dev_block_size * fs->sb->num_blocks;
     avail_space = disk_size - BOOTLOADER_SIZE - sizeof(superblock_t);
@@ -112,9 +107,11 @@ fs_t *rfs_mkfs(const char *device)
         goto error;
     }
 
-    LOG_DEBUG("writing inode bitmap to disk");
+    free(bootloader);
 
     /* ******************************************************************** */
+
+    LOG_DEBUG("writing inode bitmap to disk");
 
     byte_offset += bytes_written;
     fs->sb->ino_bm_start = byte_offset = 2 * RFS_BLOCK_SIZE;
@@ -153,7 +150,7 @@ fs_t *rfs_mkfs(const char *device)
 
     fs->sb->ino_map_start = byte_offset += bytes_written;
 
-    LOG_DEBUG("inode map takes %u bytes", num_blocks);
+    LOG_DEBUG("inode map takes %u bytes", ino_map_size);
     LOG_DEBUG("inode map starts at block %u", fs->sb->ino_map_start);
 
     bytes_written = rfs_write_buf(fs, byte_offset, inode_map, ino_map_size);
