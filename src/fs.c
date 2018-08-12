@@ -92,6 +92,9 @@ fs_t *rfs_mkfs(const char *device)
     bitmap_t *bm_data  = bm_alloc_bitmap(fs->sb->num_blocks);
     inode_t *inode_map = malloc(ino_map_size);
 
+    LOG_INFO("bm_inode size %u", bm_inode->len);
+    LOG_INFO("bm_data size %u", bm_data->len);
+
     /* DEBUG ONLY: write bootloader block full of garbage */
     uint8_t *bootloader = malloc(RFS_BLOCK_SIZE);
     memset(bootloader, 0xff, RFS_BLOCK_SIZE);
@@ -121,7 +124,9 @@ fs_t *rfs_mkfs(const char *device)
     LOG_DEBUG("inode bitmap starts at block %u (0x%x)", 
             fs->sb->ino_bm_start, fs->sb->ino_bm_start);
 
-    bytes_written = rfs_write_buf(fs, byte_offset, bm_inode, num_bytes);
+    /* FIXME: should the offsets be in fs blocks or bytes?? */
+
+    bytes_written = bm_write_to_disk(fs, byte_offset, bm_inode);
 
     if (bytes_written == 0) {
         LOG_EMERG("failed to write inode bitmap to disk: %s!", fs_strerror(0));
@@ -139,7 +144,7 @@ fs_t *rfs_mkfs(const char *device)
     LOG_DEBUG("data block bitmap starts at block %u (0x%x)",
             fs->sb->block_bm_start, fs->sb->block_bm_start);
 
-    bytes_written = rfs_write_buf(fs, byte_offset, bm_data, num_bytes);
+    bytes_written = bm_write_to_disk(fs, byte_offset, bm_data);
 
     if (bytes_written == 0) {
         LOG_EMERG("failed to write data block bitmap to disk: %s", fs_strerror(0));
@@ -207,7 +212,7 @@ fs_t *rfs_mount(const char *device)
         return NULL;
     }
 
-    LOG_INFO("superblock:\n"
+    LOG_INFO("\nsuperblock:\n"
              "\tmagic1:          0x%08x\n"
              "\tmagic2:          0x%08x\n"
              "\tnum_blocks:      %10u\n"
@@ -223,7 +228,6 @@ fs_t *rfs_mount(const char *device)
              fs->sb->block_bm_start, fs->sb->block_map_start, fs->sb->num_inodes,
              fs->sb->used_inodes, fs->sb->ino_bm_start, fs->sb->ino_map_start);
 
-    close(fs->fd);
     return fs;
 
 error:

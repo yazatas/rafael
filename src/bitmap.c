@@ -1,8 +1,11 @@
-#include "bitmap.h"
-#include "debug.h"
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "bitmap.h"
+#include "common.h"
+#include "debug.h"
+#include "fs.h"
 
 #define BM_GET_MULTIPLE_OF_32(n) (n % 32) ? ((n / 32) + 1) : (n / 32)
 
@@ -15,12 +18,22 @@ bitmap_t *bm_alloc_bitmap(size_t nmemb)
         return NULL;
     }
 
-    num_bits = BM_GET_MULTIPLE_OF_32(nmemb);
+    if (nmemb == 0) {
+        LOG_WARN("empty bitmap allocated");
+
+        bm->bits = NULL;
+        bm->len  = 0;
+        return bm;
+    }
+
+    num_bits = BM_GET_MULTIPLE_OF_32(nmemb); /* round it up to nearest multiple of 32 */
     bm->len = num_bits * 32;
 
     if ((bm->bits = calloc(num_bits, sizeof(uint32_t))) == NULL) {
         return NULL;
     }
+
+    LOG_DEBUG("allocated %u bytes for bitmap", num_bits * sizeof(uint32_t));
 
     return bm;
 }
@@ -120,4 +133,63 @@ int bm_find_first_unset(bitmap_t *bm, uint32_t n, uint32_t k)
 int bm_find_first_set(bitmap_t *bm, uint32_t n, uint32_t k)
 {
     return bm_find_first(bm, n, k, 1);
+}
+
+size_t bm_write_to_disk(fs_t *fs, off_t offset, bitmap_t *bm)
+{
+    size_t size  = sizeof(size_t) + (bm->len / 32) * sizeof(uint32_t);
+    uint8_t *buf = malloc(size);
+
+    memcpy(buf, &bm->len, sizeof(size_t));
+    memcpy(buf + sizeof(size_t), bm->bits, size - sizeof(size_t));
+
+    LOG_DEBUG("writing %u bytes to disk at offset %u", size, offset);
+
+    size_t nwritten = rfs_write_buf(fs, offset, buf, size);
+    free(buf);
+
+    return nwritten;
+}
+
+/* read initially 4KB block of data from disk and hope that 
+ * that's all we need. If it is, just copy the length and 
+ * bits from temporary buffer to the bitmap.
+ *
+ * If, however, the bitmap is larger than 4KB (very likely with
+ * large disks) just perform another disk read but this time use 
+ * the bm->bits as the destination buffer as we already know 
+ * the amount of bytes needed */
+size_t bm_read_from_disk(fs_t *fs, off_t offset, bitmap_t *bm)
+{
+    if (bm->bits != NULL) {
+        free(bm->bits);
+        bm->len = 0;
+    }
+
+    size_t ret = RFS_BLOCK_SIZE, size;
+    uint8_t *buf = malloc(RFS_BLOCK_SIZE);
+
+    if (rfs_read_blocks(fs, BYTE_TO_BLOCK(offset), buf, 1) == 0) {
+        LOG_EMERG("read from disk failed!");
+        ret = 0;
+        goto end;
+    }
+
+    memcpy(&bm->len, buf, sizeof(size_t));
+    size = (bm->len / 32) * sizeof(uint32_t);
+
+    if (size + sizeof(size_t) > RFS_BLOCK_SIZE) {
+        LOG_WARN("bitmap takes too much space, copying only part of it");
+        ret = 0;
+        goto end;
+    }
+
+    bm->bits = malloc((bm->len / 32) * sizeof(uint32_t));
+    memcpy(bm->bits, buf + sizeof(size_t), size);
+
+    LOG_INFO("bitmap can hold up to %u elements", bm->len);
+
+end:
+    free(buf);
+    return ret;
 }
