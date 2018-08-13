@@ -37,6 +37,16 @@ int bm_test_bit(bitmap_t *bm, uint32_t n);
 int bm_find_first_set(bitmap_t *bm, uint32_t n, uint32_t k);
 int bm_find_first_unset(bitmap_t *bm, uint32_t n, uint32_t k);
 
+/* TODO: add find longest set/unset range */
+
+/* return the start bit of set range
+ * on success and an error code (< 0) on error */
+int bm_find_first_set_range(bitmap_t *bm, uint32_t n, uint32_t k, size_t len);
+
+/* return the start bit of unset set range
+ * on success and an error code (< 0) on error */
+int bm_find_first_unset_range(bitmap_t *bm, uint32_t n, uint32_t k, size_t len);
+
 /* functions below are temporary and a better way of handling reading
  * and writing bitmaps from/to disk will be implemented eventually */
 

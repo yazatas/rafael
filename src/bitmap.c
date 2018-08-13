@@ -6,6 +6,7 @@
 #include "common.h"
 #include "debug.h"
 #include "fs.h"
+#include "io.h"
 
 #define BM_GET_MULTIPLE_OF_32(n) (n % 32) ? ((n / 32) + 1) : (n / 32)
 
@@ -133,6 +134,47 @@ int bm_find_first_unset(bitmap_t *bm, uint32_t n, uint32_t k)
 int bm_find_first_set(bitmap_t *bm, uint32_t n, uint32_t k)
 {
     return bm_find_first(bm, n, k, 1);
+}
+
+static int bm_find_first_range(bitmap_t *bm, uint32_t n, uint32_t k, size_t len, uint8_t bit_status)
+{
+    if (n >= bm->len || k >= bm->len) {
+        LOG_WARN("argument n(%lu) or k(%lu) is over range(%u)!", n, k, bm->len);
+        return BM_RANGE_ERROR;
+    }
+
+    int start = BM_NOT_FOUND_ERROR;
+    size_t cur_len = 0;
+
+    while (n <= k) {
+        if ((bm->bits[n / 32] & (1 << (n % 32))) == bit_status) {
+
+            LOG_INFO("bit at index %u matches %u", n, bit_status); 
+
+            if (start == BM_NOT_FOUND_ERROR)
+                start = n;
+
+            if (++cur_len == len)
+                return start;
+
+        } else {
+            start   = BM_NOT_FOUND_ERROR;
+            cur_len = 0;
+        }
+        n++;
+    }
+
+    return BM_NOT_FOUND_ERROR;
+}
+
+int bm_find_first_set_range(bitmap_t *bm, uint32_t n, uint32_t k, size_t len)
+{
+    return bm_find_first_range(bm, n, k, len, 1);
+}
+
+int bm_find_first_unset_range(bitmap_t *bm, uint32_t n, uint32_t k, size_t len)
+{
+    return bm_find_first_range(bm, n, k, len, 0);
 }
 
 size_t bm_write_to_disk(fs_t *fs, off_t offset, bitmap_t *bm)
