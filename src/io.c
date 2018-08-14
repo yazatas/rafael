@@ -38,7 +38,7 @@ size_t rfs_read_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
         return 0;
     }
 
-    LOG_INFO("reading %u blocks, block offset %u",  nblocks, b_offset);
+    LOG_DEBUG("reading %u blocks, block offset %u",  nblocks, b_offset);
 
     for (size_t i = 0, ptr = 0; i < nblocks; ++i) {
 
@@ -46,7 +46,7 @@ size_t rfs_read_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
         size_t end   = (b_offset + i) * RFS_BLOCK_SIZE + RFS_BLOCK_SIZE;
 
         for (; start < end; start+=BLOCK_SIZE, ptr+=BLOCK_SIZE) {
-            LOG_DEBUG("writing to disk sector %u", start / BLOCK_SIZE);
+            LOG_DEBUG("reading from disk sector %u", start / BLOCK_SIZE);
             disk_read(fs->fd, start / BLOCK_SIZE, &((uint8_t *)buf)[ptr]);
         }
     }
@@ -64,7 +64,7 @@ size_t rfs_write_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
         return 0;
     }
 
-    LOG_INFO("writing %u blocks, block offset %u",  nblocks, b_offset);
+    LOG_DEBUG("writing %u blocks, block offset %u",  nblocks, b_offset);
 
     for (size_t i = 0, ptr = 0; i < nblocks; ++i) {
 
@@ -94,7 +94,7 @@ size_t rfs_write_buf(fs_t *fs, uint32_t offset, void *buf, size_t size)
         goto error;
     }
 
-    LOG_INFO("writing %u bytes, byte offset %u", size, offset);
+    LOG_DEBUG("writing %u bytes, byte offset %u", size, offset);
 
     if (size % RFS_BLOCK_SIZE == 0) {
         nblocks = size / RFS_BLOCK_SIZE;
@@ -159,7 +159,7 @@ size_t rfs_read_buf(fs_t *fs, uint32_t offset, void *buf, size_t size)
         goto error;
     }
 
-    LOG_INFO("reading %u bytes, byte offset %u", size, offset);
+    LOG_DEBUG("reading %u bytes, byte offset %u", size, offset);
 
     if (size % RFS_BLOCK_SIZE == 0) {
         nblocks = size / RFS_BLOCK_SIZE;
@@ -167,6 +167,8 @@ size_t rfs_read_buf(fs_t *fs, uint32_t offset, void *buf, size_t size)
         if (rfs_read_blocks(fs, b_offset, buf, nblocks) != nblocks) {
             goto error;
         }
+
+        return size;
     }
 
     if (size < RFS_BLOCK_SIZE) {
