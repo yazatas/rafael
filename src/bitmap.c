@@ -118,7 +118,7 @@ static int bm_find_first(bitmap_t *bm, uint32_t n, uint32_t k, uint8_t bit_statu
     }
 
     while (n <= k) {
-        if ((bm->bits[n / 32] & (1 << (n % 32))) == bit_status)
+        if (((bm->bits[n / 32] & (1 << (n % 32))) >> (n % 32)) == bit_status)
             return n;
         n++;
     }
@@ -147,9 +147,7 @@ static int bm_find_first_range(bitmap_t *bm, uint32_t n, uint32_t k, size_t len,
     size_t cur_len = 0;
 
     while (n <= k) {
-        if ((bm->bits[n / 32] & (1 << (n % 32))) == bit_status) {
-
-            LOG_INFO("bit at index %u matches %u", n, bit_status); 
+        if (((bm->bits[n / 32] & (1 << (n % 32))) >> (n % 32)) == bit_status) {
 
             if (start == BM_NOT_FOUND_ERROR)
                 start = n;
