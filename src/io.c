@@ -145,6 +145,8 @@ error:
  * 1) if size < RFS_BLOCK_SIZE 
  *    * Call rfs_read_blocks with fs_block buffer
  *    * Copy size bytes from fs_block to buf
+ *    * As the rfs_read_blocks() reads an entire fs block,
+ *      remember to copy bytes starting from byte offset
  *
  * 2) if size % RFS_BLOCK_SIZE != 0 
  *    * read "size / RFS_BLOCK_SIZE" blocks from disk right to buf
@@ -176,7 +178,7 @@ size_t rfs_read_buf(fs_t *fs, uint32_t offset, void *buf, size_t size)
             goto error;
         }
 
-        memcpy(buf, fs_block, size);
+        memcpy(buf, fs_block + offset % RFS_BLOCK_SIZE, size);
         return size;
     }
 
