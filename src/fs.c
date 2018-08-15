@@ -248,13 +248,46 @@ fs_t *rfs_mount(const char *device)
              fs->sb->block_bm_start, fs->sb->block_map_start, fs->sb->num_inodes,
              fs->sb->used_inodes, fs->sb->ino_bm_start, fs->sb->ino_map_start);
 
+    
     return fs;
-
-error:
-    fs_set_errno(FS_SB_READ_FAILED);
-    return NULL;
 }
 
 fs_status_t rfs_umount(fs_t *fs)
 {
+    LOG_INFO("unmounting disk...");
+    fs->sb->flag = RFS_SB_CLEAN;
+
+    LOG_DEBUG("writing inode bitmap to disk at offset %u", fs->sb->ino_bm_start);
+    if (bm_write_to_disk(fs, fs->sb->ino_bm_start, fs->bm_inode) == 0) {
+        LOG_EMERG("failed to write inode bitmap to disk");
+        return FS_WRITE_FAILED;
+    }
+
+    LOG_DEBUG("writing block bitmap to disk at offset %u", fs->sb->block_bm_start);
+    if (bm_write_to_disk(fs, fs->sb->block_bm_start, fs->bm_data) == 0) {
+        LOG_EMERG("failed to write block bitmap to disk");
+        return FS_WRITE_FAILED;
+    }
+
+    LOG_DEBUG("writing superblock to disk at offset %u", BLOCK_TO_BYTE(1));
+    if (rfs_write_buf(fs, BLOCK_TO_BYTE(1), fs->sb, sizeof(superblock_t)) == 0) {
+        LOG_EMERG("failed to write superblock to disk");
+        return FS_WRITE_FAILED;
+    }
+
+    LOG_DEBUG("writing inodes from the inode map to disk");
+    for (size_t i = 0; i < fs->ino_map_len; ++i) {
+        if (rfs_write_inode(fs, fs->inode_map[i]) == 0)
+            LOG_WARN("failed to write inode to disk");
+        free(fs->inode_map[i]);
+    }
+
+    bm_dealloc_bitmap(fs->bm_inode);
+    bm_dealloc_bitmap(fs->bm_data);
+    disk_close(fs->fd);
+    free(fs->inode_map);
+    free(fs->sb);
+    free(fs);
+
+    return FS_OK;
 }
