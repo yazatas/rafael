@@ -6,15 +6,15 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "common.h"
 #include "debug.h"
 #include "disk.h"
-#include "io.h"
-#include "inode.h"
 #include "fs.h"
 #include "fs_errno.h"
+#include "io.h"
+#include "inode.h"
 
 #define BOOTLOADER_SIZE  512 
-#define BYTES_PER_INODE  (1024 * 16)
 #define SB_SIZE          sizeof(superblock_t)
 
 static inline size_t bytes_to_blocks(size_t bytes)
@@ -196,14 +196,19 @@ error:
 
 fs_t *rfs_mount(const char *device)
 {
-    fs_t *fs = malloc(sizeof(fs_t));
-    fs->sb   = malloc(sizeof(superblock_t));
-    fs->fd   = disk_init(device);
+    LOG_INFO("mounting file system from device '%s'", device);
+
+    fs_t *fs        = malloc(sizeof(fs_t));
+    fs->sb          = malloc(sizeof(superblock_t));
+    fs->fd          = disk_init(device);
+    fs->bm_inode    = bm_alloc_bitmap(0);
+    fs->bm_data     = bm_alloc_bitmap(0);
 
     fs->sb->num_blocks = 1;
     if (rfs_read_buf(fs, RFS_BLOCK_SIZE, fs->sb, SB_SIZE) == 0) {
         LOG_EMERG("failed to read superblock from disk!");
-        goto error;
+        fs_set_errno(FS_SB_READ_FAILED);
+        return NULL;
     }
 
     if (fs->sb->magic1 != RFS_SB_MAGIC1 || fs->sb->magic2 != RFS_SB_MAGIC2) {
@@ -211,6 +216,21 @@ fs_t *rfs_mount(const char *device)
         fs_set_errno(FS_SB_INVALID_MAGIC);
         return NULL;
     }
+
+    if (bm_read_from_disk(fs, fs->sb->ino_bm_start, fs->bm_inode) == 0) {
+        LOG_EMERG("failed to read inode bitmap from disk!");
+        fs_set_errno(FS_READ_FAILED);
+        return NULL;
+    }
+
+    if (bm_read_from_disk(fs, fs->sb->block_bm_start, fs->bm_data) == 0) {
+        LOG_EMERG("failed to read data bitmap from disk!");
+        fs_set_errno(FS_READ_FAILED);
+        return NULL;
+    }
+
+    fs->inode_map   = malloc(sizeof(inode_t *) * 30);
+    fs->ino_map_len = 0; /* TODO: len, not count */
 
     LOG_INFO("\nsuperblock:\n"
              "\tmagic1:          0x%08x\n"
