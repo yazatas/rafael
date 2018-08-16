@@ -114,6 +114,32 @@ fs_t *rfs_mkfs(const char *device)
 
     /* ******************************************************************** */
 
+    /* the root inode must be crafted manually because the disk has nothing
+     * on it at this point and this means that inodes routines won't work either
+     *
+     * Root inode doesn't actually have any data blocks in this implementation.
+     * I need to rethink the design here to allow block allocation at this point...  */
+
+    LOG_DEBUG("creating root inode");
+
+    bm_set_bit(bm_inode, 0);
+    bm_set_range(bm_inode, 0, 1); /* 0 is reserved number so root is the first inode */
+    bm_set_range(bm_data,  0, 3); /* allocate space for 4 fs blocks for the root inode */
+
+    inode_t *root = (inode_t *)((uint8_t *)inode_map + sizeof(inode_t));
+
+    root->flags  = 456;
+	root->mode   = 456;
+	root->i_gid  = 1;
+    root->i_size = 0;
+	root->i_uid  = 0;
+    root->i_ino  = 1;
+
+    fs->sb->used_inodes = 2; /* 0 is technically in use as it is reserved */
+    fs->sb->used_blocks = 4;
+
+    /* ******************************************************************** */
+
     LOG_INFO("writing inode bitmap to disk");
 
     byte_offset += bytes_written;
