@@ -11,13 +11,23 @@ rafael shall log extensively to make the future debugging less painful. The code
 rafael has 4 logging levels: debug, info, warning and emergency. The level of debugging can be set during compile time. In the future it may be possible to control it during run time.
 
 * LOG_DEBUG
-   * Debug messages should be used often but they should carry information that would be helpful if you're debugging the system (f.ex. message that would flood logs should be debug level)
+   * Debug messages should be used often but they should only carry information that would be helpful if you're debugging the system (f.ex. message that would flood logs should be debug level)
 * LOG_INFO
-   * This should the most often used logging level. All non-error related information which the user benefits from knowing should be logged as info
+   * This should the most often used logging level. All non-error related information which the user might benefit from knowing should be logged as info
 * LOG_WARN
    * This is very rarely used log level but still useful in same cases. For example, mounted file system having dirty flag set would be a reason to use this log level.
 * LOG_EMERG
    * Emergency log messages are reserved, you guessed it, for emergencies. For example, failure to open disk or mounting the file system are considered emergencies.
+
+# Return values
+
+If the return value is a non-NULL pointer or an integer greater or equal to zero (depending on the function, see below) the function has succeeded.
+If a return value is negative or NULL an error has occurred.
+
+Examples:
+   * rfs_alloc_inode() will return a pointer to inode on success and NULL on error
+   * rfs_read_buf() will return the number of bytes read on success and negative errno on error
+   * rfs_dir_insert() will return 0 on success and negated errno on error
 
 # Disk layout
 
@@ -40,10 +50,17 @@ rafael has the following disk layout:
 
 Below is a list of stuff that should be done ASAP (roughly in that order too):
    * Inode CRUD support
+   * Standardize return values (object/error code/bytes read or written?)
+   * Some kind of partial caching for bitmaps
    * Block allocator
    * File and directory creation support
    * Block cache
+   * Add unit testing
    * Journaling
+      * Metadata journaling
+      * Block journaling
+   * Data compression
+   * Data encryption
 
 # Copying
 rafael is free software. It's licensed under the MIT license.
