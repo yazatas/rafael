@@ -33,7 +33,7 @@ size_t rfs_read_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
     const size_t BLOCK_SIZE = disk_get_block_size(fs->fd);
 
     if (b_offset > fs->sb->num_blocks) {
-        LOG_EMERG("Trying to read from block %u but file system has only %u blocks",
+        LOG_ERROR("Trying to read from block %u but file system has only %u blocks",
                 b_offset, fs->sb->num_blocks);
         return 0;
     }
@@ -59,7 +59,7 @@ size_t rfs_write_blocks(fs_t *fs, uint32_t b_offset, void *buf, size_t nblocks)
     const size_t BLOCK_SIZE = disk_get_block_size(fs->fd);
 
     if (b_offset > fs->sb->num_blocks) {
-        LOG_EMERG("Trying to write to block %u but file system has only %u blocks",
+        LOG_ERROR("Trying to write to block %u but file system has only %u blocks",
                 b_offset, fs->sb->num_blocks);
         return 0;
     }
@@ -133,7 +133,7 @@ size_t rfs_write_buf(fs_t *fs, uint32_t offset, void *buf, size_t size)
     }
 
 error:
-    LOG_EMERG("failed to write blocks to disk!");
+    LOG_ERROR("failed to write blocks to disk!");
     return 0;
 }
 
@@ -198,6 +198,6 @@ size_t rfs_read_buf(fs_t *fs, uint32_t offset, void *buf, size_t size)
     }
 
 error:
-    LOG_EMERG("failed to read from disk!");
+    LOG_ERROR("failed to read from disk!");
     return 0;
 }

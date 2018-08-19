@@ -49,7 +49,7 @@ void bm_dealloc_bitmap(bitmap_t *bm)
 int bm_set_bit(bitmap_t *bm, uint32_t n)
 {
 	if (n / 32 > bm->len) {
-        LOG_WARN( "bit %u is over range!", n);
+        LOG_ERROR( "bit %u is over range!", n);
 		return BM_RANGE_ERROR;
 	}
 
@@ -60,7 +60,7 @@ int bm_set_bit(bitmap_t *bm, uint32_t n)
 int bm_set_range(bitmap_t *bm, uint32_t n, uint32_t k)
 {
     if (n >= bm->len || k >= bm->len) {
-        LOG_WARN("argument n(%u) or k(%u) is over range(%u)!", n, k, bm->len);
+        LOG_ERROR("argument n(%u) or k(%u) is over range(%u)!", n, k, bm->len);
         return BM_RANGE_ERROR;
     }
 
@@ -76,7 +76,7 @@ int bm_set_range(bitmap_t *bm, uint32_t n, uint32_t k)
 int bm_unset_bit(bitmap_t *bm, uint32_t n)
 {
     if (n >= bm->len) {
-        LOG_WARN("bit %u is over range!", n);
+        LOG_ERROR("bit %u is over range!", n);
         return BM_RANGE_ERROR;
     }
 
@@ -87,7 +87,7 @@ int bm_unset_bit(bitmap_t *bm, uint32_t n)
 int bm_unset_range(bitmap_t *bm, uint32_t n, uint32_t k)
 {
     if (n >= bm->len || k >= bm->len) {
-        LOG_WARN("argument n(%u) or k(%u) is over range(%u)!", n, k, bm->len);
+        LOG_ERROR("argument n(%u) or k(%u) is over range(%u)!", n, k, bm->len);
         return BM_RANGE_ERROR;
     }
 
@@ -103,7 +103,7 @@ int bm_unset_range(bitmap_t *bm, uint32_t n, uint32_t k)
 int bm_test_bit(bitmap_t *bm, uint32_t n)
 {
     if (n >= bm->len) {
-        LOG_WARN("bit %lu is over range!", n);
+        LOG_ERROR("bit %lu is over range!", n);
         return BM_RANGE_ERROR;
     }
 
@@ -113,7 +113,7 @@ int bm_test_bit(bitmap_t *bm, uint32_t n)
 static int bm_find_first(bitmap_t *bm, uint32_t n, uint32_t k, uint8_t bit_status)
 {
     if (n >= bm->len || k >= bm->len) {
-        LOG_WARN("argument n(%lu) or k(%lu) is over range(%u)!", n, k, bm->len);
+        LOG_ERROR("argument n(%lu) or k(%lu) is over range(%u)!", n, k, bm->len);
         return BM_RANGE_ERROR;
     }
 
@@ -139,7 +139,7 @@ int bm_find_first_set(bitmap_t *bm, uint32_t n, uint32_t k)
 static int bm_find_first_range(bitmap_t *bm, uint32_t n, uint32_t k, size_t len, uint8_t bit_status)
 {
     if (n >= bm->len || k >= bm->len) {
-        LOG_WARN("argument n(%lu) or k(%lu) is over range(%u)!", n, k, bm->len);
+        LOG_ERROR("argument n(%lu) or k(%lu) is over range(%u)!", n, k, bm->len);
         return BM_RANGE_ERROR;
     }
 
@@ -219,7 +219,7 @@ size_t bm_read_from_disk(fs_t *fs, off_t offset, bitmap_t *bm)
     size = (bm->len / 32) * sizeof(uint32_t);
 
     if (size + sizeof(size_t) > RFS_BLOCK_SIZE) {
-        LOG_WARN("bitmap takes too much space, copying only part of it");
+        LOG_ERROR("bitmap takes too much space, copying only part of it");
         ret = 0;
         goto end;
     }

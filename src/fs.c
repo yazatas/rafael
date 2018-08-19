@@ -106,7 +106,7 @@ fs_t *rfs_mkfs(const char *device)
     bytes_written = RFS_BLOCK_SIZE;
 
     if (bytes_written != RFS_BLOCK_SIZE) {
-        LOG_EMERG("failed to write bootloader block");
+        LOG_ERROR("failed to write bootloader block");
         goto error;
     }
 
@@ -155,7 +155,7 @@ fs_t *rfs_mkfs(const char *device)
     bytes_written = bm_write_to_disk(fs, byte_offset, bm_inode);
 
     if (bytes_written == 0) {
-        LOG_EMERG("failed to write inode bitmap to disk: %s!", fs_strerror(0));
+        LOG_ERROR("failed to write inode bitmap to disk: %s!", fs_strerror(0));
         goto error;
     }
 
@@ -173,7 +173,7 @@ fs_t *rfs_mkfs(const char *device)
     bytes_written = bm_write_to_disk(fs, byte_offset, bm_data);
 
     if (bytes_written == 0) {
-        LOG_EMERG("failed to write data block bitmap to disk: %s", fs_strerror(0));
+        LOG_ERROR("failed to write data block bitmap to disk: %s", fs_strerror(0));
         goto error;
     }
 
@@ -189,7 +189,7 @@ fs_t *rfs_mkfs(const char *device)
     bytes_written = rfs_write_buf(fs, byte_offset, inode_map, ino_map_size);
 
     if (bytes_written == 0) {
-        LOG_EMERG("failed to write inode map to disk: %s!", fs_strerror(0));
+        LOG_ERROR("failed to write inode map to disk: %s!", fs_strerror(0));
         goto error;
     }
 
@@ -208,7 +208,7 @@ fs_t *rfs_mkfs(const char *device)
     bytes_written = rfs_write_buf(fs, byte_offset, fs->sb, SB_SIZE);
 
     if (bytes_written == 0) {
-        LOG_EMERG("failed to write superblock to disk");
+        LOG_ERROR("failed to write superblock to disk");
         goto error;
     }
 
@@ -232,25 +232,25 @@ fs_t *rfs_mount(const char *device)
 
     fs->sb->num_blocks = 1;
     if (rfs_read_buf(fs, RFS_BLOCK_SIZE, fs->sb, SB_SIZE) == 0) {
-        LOG_EMERG("failed to read superblock from disk!");
+        LOG_ERROR("failed to read superblock from disk!");
         fs_set_errno(FS_SB_READ_FAILED);
         return NULL;
     }
 
     if (fs->sb->magic1 != RFS_SB_MAGIC1 || fs->sb->magic2 != RFS_SB_MAGIC2) {
-        LOG_EMERG("Invalid magic number: 0x%x 0x%x", fs->sb->magic1, fs->sb->magic2);
+        LOG_ERROR("Invalid magic number: 0x%x 0x%x", fs->sb->magic1, fs->sb->magic2);
         fs_set_errno(FS_SB_INVALID_MAGIC);
         return NULL;
     }
 
     if (bm_read_from_disk(fs, fs->sb->ino_bm_start, fs->bm_inode) == 0) {
-        LOG_EMERG("failed to read inode bitmap from disk!");
+        LOG_ERROR("failed to read inode bitmap from disk!");
         fs_set_errno(FS_READ_FAILED);
         return NULL;
     }
 
     if (bm_read_from_disk(fs, fs->sb->block_bm_start, fs->bm_data) == 0) {
-        LOG_EMERG("failed to read data bitmap from disk!");
+        LOG_ERROR("failed to read data bitmap from disk!");
         fs_set_errno(FS_READ_FAILED);
         return NULL;
     }
@@ -285,19 +285,19 @@ fs_status_t rfs_umount(fs_t *fs)
 
     LOG_DEBUG("writing inode bitmap to disk at offset %u", fs->sb->ino_bm_start);
     if (bm_write_to_disk(fs, fs->sb->ino_bm_start, fs->bm_inode) == 0) {
-        LOG_EMERG("failed to write inode bitmap to disk");
+        LOG_ERROR("failed to write inode bitmap to disk");
         return FS_WRITE_FAILED;
     }
 
     LOG_DEBUG("writing block bitmap to disk at offset %u", fs->sb->block_bm_start);
     if (bm_write_to_disk(fs, fs->sb->block_bm_start, fs->bm_data) == 0) {
-        LOG_EMERG("failed to write block bitmap to disk");
+        LOG_ERROR("failed to write block bitmap to disk");
         return FS_WRITE_FAILED;
     }
 
     LOG_DEBUG("writing superblock to disk at offset %u", BLOCK_TO_BYTE(1));
     if (rfs_write_buf(fs, BLOCK_TO_BYTE(1), fs->sb, sizeof(superblock_t)) == 0) {
-        LOG_EMERG("failed to write superblock to disk");
+        LOG_ERROR("failed to write superblock to disk");
         return FS_WRITE_FAILED;
     }
 

@@ -16,6 +16,8 @@ rafael has 4 logging levels: debug, info, warning and emergency. The level of de
    * This should the most often used logging level. All non-error related information which the user might benefit from knowing should be logged as info
 * LOG_WARN
    * This is very rarely used log level but still useful in same cases. For example, mounted file system having dirty flag set would be a reason to use this log level.
+* LOG_ERROR
+   * All non-fatal error conditions are logged as errors. This includes failure to open a file or allocating an inode number
 * LOG_EMERG
    * Emergency log messages are reserved, you guessed it, for emergencies. For example, failure to open disk or mounting the file system are considered emergencies.
 
