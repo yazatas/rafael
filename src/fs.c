@@ -138,11 +138,21 @@ fs_t *rfs_mkfs(const char *device)
     fs->sb->used_inodes = 2; /* 0 is technically in use as it is reserved */
     fs->sb->used_blocks = 4;
 
+    int index = bm_find_first_unset_range(bm_data, 0, bm_data->len - 1, RFS_NUM_BLOCKS);
+    if (index < 0) {
+        LOG_ERROR("couldn't find enough free blocks!");
+        goto error;
+    }
+
+    for (int i = 0; i < RFS_NUM_BLOCKS; ++i) {
+        root->blocks[i] = UINT32_MAX;
+        bm_set_bit(bm_data, index + i);
+    }
+
     /* ******************************************************************** */
 
     LOG_INFO("writing inode bitmap to disk");
 
-    byte_offset += bytes_written;
     fs->sb->ino_bm_start = byte_offset = 2 * RFS_BLOCK_SIZE;
     num_bytes = BM_GET_SIZE(bm_inode);
 
@@ -199,7 +209,7 @@ fs_t *rfs_mkfs(const char *device)
 
     fs->sb->block_map_start = byte_offset + bytes_written;
 
-    LOG_DEBUG("data blocks start at block %u", fs->sb->block_map_start);
+    LOG_DEBUG("data blocks start at block %u", BYTE_TO_BLOCK(fs->sb->block_map_start));
     LOG_DEBUG("writing superblock to disk");
 
     memset(fs->sb->unused, 0xaa, sizeof(fs->sb->unused));

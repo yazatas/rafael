@@ -92,8 +92,14 @@ void list_inodes(fs_t *fs)
                  "\tino.mode: %u\n"
                  "\tino.i_gid: %u\n"
                  "\tino.i_size: %u\n"
-                 "\tino.i_uid: %u\n\n", index, ino.i_ino, 
+                 "\tino.i_uid: %u\n", index, ino.i_ino,
                  ino.flags, ino.mode, ino.i_gid, ino.i_size, ino.i_uid);
+
+        fprintf(stderr, "\tdata blocks: \n");
+        for (int i = 0; i < RFS_NUM_BLOCKS; ++i) {
+            fprintf(stderr, " %d", ino.blocks[i]);
+        }
+        fprintf(stderr, "\n\n");
 
         memset(&ino, 0, sizeof(inode_t));
 

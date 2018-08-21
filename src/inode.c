@@ -68,27 +68,28 @@ inode_t *rfs_inode_alloc(fs_t *fs)
 
     LOG_DEBUG("allocated %u blocks for inode %u starting at block %u",
             num_blocks, ino->i_ino, index + BYTE_TO_BLOCK(fs->sb->block_map_start));
-    bm_set_range(fs->bm_data, index, index + num_blocks - 1);
 
-    /* TODO: 
-     *
-     * for now just save the block number to inode blocks arrays
-     * and write blocks full of debug bytes
-     *
-     * in the future the allocation could be delayed until unmount or fsync() */
     static uint8_t buf[RFS_BLOCK_SIZE];
-    uint8_t bytes[4] = { 0xab + ino->i_ino, 0xbc + ino->i_ino, 0xcd + ino->i_ino, 0xde + ino->i_ino };
+    uint8_t bytes[4] = {
+        0xab + ino->i_ino,
+        0xbc + ino->i_ino,
+        0xcd + ino->i_ino,
+        0xde + ino->i_ino
+    };
 
     size_t block_offset = BYTE_TO_BLOCK(fs->sb->block_map_start) + index;
 
     for (size_t i = 0; i < num_blocks; ++i) {
+        ino->blocks[i] = block_offset + i;
+        bm_set_bit(fs->bm_data, index + i);
+
         LOG_DEBUG("writing %u '0x%x' bytes to block %u",
-                RFS_BLOCK_SIZE, bytes[i], block_offset + i);
+                RFS_BLOCK_SIZE, bytes[i], ino->blocks[i]);
+
         memset(buf, bytes[i], RFS_BLOCK_SIZE);
         rfs_write_blocks(fs, block_offset + i, buf, 1);
     }
 
-    /* TODO: temporary solution */
     fs->inode_map[fs->ino_map_len++] = ino;
     fs->sb->used_inodes++;
     fs->sb->used_blocks += 4;
@@ -104,8 +105,8 @@ error:
  * in the future once I have better understanding of needed concepts */
 int rfs_inode_write(fs_t *fs, inode_t *ino)
 {
-    LOG_INFO("writing inode %u to disk", ino->i_ino);
-    LOG_INFO("inode offset in the inode map: %u",
+    LOG_DEBUG("writing inode %u to disk", ino->i_ino);
+    LOG_DEBUG("inode offset in the inode map: %u",
             fs->sb->ino_map_start + ino->i_ino * sizeof(inode_t));
 
     /* read needed block from disk */
