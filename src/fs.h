@@ -8,11 +8,8 @@
 
 #include "bitmap.h"
 #include "fs_errno.h"
-#include "inode.h"
 
-/* FIXME: what is this? */
 #define RFS_BLOCK_SIZE   4096
-
 #define RFS_SB_MAGIC1    0xDEADBEEF
 #define RFS_SB_MAGIC2    0x13371338
 #define RFS_SB_CLEAN     0xCAFEBABE
@@ -22,6 +19,7 @@
 #define MNT_WRITE      "w"
 #define MNT_READ_WRITE "r+"
 
+typedef struct inode inode_t;
 
 /* two magic numbers at the beginning and end to make sure at least
  * superblock's integrity can be verified 100% */
@@ -45,6 +43,7 @@ typedef struct superblock {
     uint8_t unused[42];
 } superblock_t;
 
+/* TODO: this can be removed?? */
 typedef struct mount {
     superblock_t *sb;
     bitmap_t *bm_inode;
@@ -55,6 +54,13 @@ typedef struct mount {
 typedef struct fs {
     superblock_t *sb;
     int fd;
+
+    bitmap_t *bm_inode;
+    bitmap_t *bm_data;
+
+    /* TODO: this is just a temporary solution */
+    inode_t **inode_map;
+    size_t ino_map_len;
 } fs_t;
 
 /* open device  */
