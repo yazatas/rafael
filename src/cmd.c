@@ -47,7 +47,7 @@ void run_cmd(void *ptr)
                      fs->sb->block_bm_start, fs->sb->block_map_start, fs->sb->num_inodes,
                      fs->sb->used_inodes, fs->sb->ino_bm_start, fs->sb->ino_map_start);
         } else if (strcmp(command, "alloc_ino") == 0) {
-            if ((ino = rfs_alloc_inode(fs)) != NULL) {
+            if ((ino = rfs_inode_alloc(fs)) != NULL) {
                 LOG_INFO("allocated inode info:\n"
                      "\ti_ino: %u\n"
                      "\tino->flags: %u\n"

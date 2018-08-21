@@ -128,7 +128,7 @@ fs_t *rfs_mkfs(const char *device)
 
     inode_t *root = (inode_t *)((uint8_t *)inode_map + sizeof(inode_t));
 
-    root->flags  = 456;
+    root->flags  = S_IFDIR;
 	root->mode   = 456;
 	root->i_gid  = 1;
     root->i_size = 0;
@@ -303,7 +303,7 @@ fs_status_t rfs_umount(fs_t *fs)
 
     LOG_DEBUG("writing inodes from the inode map to disk");
     for (size_t i = 0; i < fs->ino_map_len; ++i) {
-        if (rfs_write_inode(fs, fs->inode_map[i]) == 0)
+        if (rfs_inode_write(fs, fs->inode_map[i]) == 0)
             LOG_WARN("failed to write inode to disk");
         free(fs->inode_map[i]);
     }

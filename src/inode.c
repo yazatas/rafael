@@ -36,13 +36,13 @@ static uint32_t get_ino(fs_t *fs)
 
 /* TODO: refactor this, it's full of
  * idiotic solutions and ugly code */
-inode_t *rfs_alloc_inode(fs_t *fs)
+inode_t *rfs_inode_alloc(fs_t *fs)
 {
     LOG_INFO("allocating inode...");
 
     inode_t *ino = malloc(sizeof(inode_t));
 
-	ino->flags  = 666;
+	ino->flags  = 0;
 	ino->mode   = 666;
 	ino->i_gid  = get_gid();
     ino->i_size = 0;
@@ -91,6 +91,7 @@ inode_t *rfs_alloc_inode(fs_t *fs)
     /* TODO: temporary solution */
     fs->inode_map[fs->ino_map_len++] = ino;
     fs->sb->used_inodes++;
+    fs->sb->used_blocks += 4;
 
     return ino;
 
@@ -101,7 +102,7 @@ error:
 
 /* FIXME: this is extremely inefficient solution and it'll be fixex
  * in the future once I have better understanding of needed concepts */
-int rfs_write_inode(fs_t *fs, inode_t *ino)
+int rfs_inode_write(fs_t *fs, inode_t *ino)
 {
     LOG_INFO("writing inode %u to disk", ino->i_ino);
     LOG_INFO("inode offset in the inode map: %u",
@@ -129,13 +130,13 @@ int rfs_write_inode(fs_t *fs, inode_t *ino)
     /* TODO: how to handle data blocks?? */
 }
 
-void delete_inode(fs_t *fs, inode_t *ino)
+void rfs_inode_delete(fs_t *fs, inode_t *ino)
 {
     /* TODO: set bitmap entry for this inode to 0 */
-    /* TODO: find the inode in the inode map and zero it out */
-    /* TODO: set bits in the data bitmap to zero */
+    bm_set_bit(fs->bm_inode, ino->i_ino);
 
-    /* TODO: 
-     * TODO: SUPERBLOCK/SOMETHING NEEDED!!!
-     * TODO: */
+    LOG_DEBUG("set bit in inode bitmap to zero %u", ino->i_ino);
+
+    /* TODO: remove all child nodes */
+    /* TODO: create way to find inode's children */
 }
