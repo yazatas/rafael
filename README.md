@@ -63,6 +63,3 @@ Below is a list of stuff that should be done ASAP (roughly in that order too):
       * Block journaling
    * Data compression
    * Data encryption
-
-# Copying
-rafael is free software. It's licensed under the MIT license.
